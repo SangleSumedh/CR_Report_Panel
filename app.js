@@ -1,5 +1,5 @@
 import { db, auth } from './firebase-config.js';
-import { collection, addDoc, getDocs, query, orderBy, limit, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, orderBy, limit, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 class MISReportingEngine {
@@ -199,7 +199,7 @@ class MISReportingEngine {
             );
 
             const querySnapshot = await getDocs(q);
-            const data = querySnapshot.docs.map(doc => doc.data());
+            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             this.updateMetrics(data);
             this.updateCharts(data);
@@ -468,7 +468,7 @@ class MISReportingEngine {
             );
             
             const querySnapshot = await getDocs(q);
-            const data = querySnapshot.docs.map(doc => doc.data());
+            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             const filteredData = this.filterDataByDateRange(data, startDate, endDate);
             this.currentReportData = filteredData; // Store for export
@@ -504,8 +504,157 @@ class MISReportingEngine {
 
         this.displayExecutiveSummary(data, reportType, startDate, endDate);
         this.displayTabularSummary(data);
+        this.displayDetailedTable(data); // New Detailed Table
         this.displayKeyInsights(data);
         this.displayRecommendations(data);
+    }
+
+    // New Method for Detailed Data & Delete
+    displayDetailedTable(data) {
+        const isSuperAdmin = this.currentUser && this.currentUser.email.toLowerCase() === 'sanglesumedh15@gmail.com'; 
+        // Note: Ideally check Firestore role, but for UI visibility this is fast. 
+        // We can also check: this.userRole === 'superadmin' if we stored it.
+        // Let's rely on the global check or just fetch it. 
+        // For now, let's use the same logic as the Admin button visibility or just check email.
+        
+        let html = `
+            <div class="mt-8">
+                <h4 class="text-lg font-semibold text-gray-800 mb-3">Detailed Data Logs</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Employee</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Team</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">JD Received</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Companies Closed</th>
+                                ${isSuperAdmin ? '<th class="px-4 py-2 text-center text-xs font-semibold text-red-600 uppercase">Actions</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+        `;
+
+        data.forEach(record => {
+            const dateStr = new Date(record.date).toLocaleDateString();
+            const companies = Array.isArray(record.company_names) ? record.company_names.join(", ") : record.company_names;
+            
+            html += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm text-gray-900">${dateStr}</td>
+                    <td class="px-4 py-2 text-sm text-gray-700 font-medium">${record.employee_name}</td>
+                    <td class="px-4 py-2 text-sm text-gray-500">${record.team}</td>
+                    <td class="px-4 py-2 text-sm text-purple-600 font-bold text-center">${record.jd_received || 0}</td>
+                    <td class="px-4 py-2 text-sm text-gray-600 max-w-xs truncate" title="${companies}">${companies || '-'}</td>
+                    ${isSuperAdmin ? `
+                    <td class="px-4 py-2 text-center">
+                        <button onclick="window.misEngine.deleteEntry('${record.id}')" 
+                                class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors text-xs font-semibold border border-red-200">
+                            Delete
+                        </button>
+                    </td>` : ''}
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // Append to tabular summary for now, or insert after
+        const tabularDiv = document.getElementById('tabularSummary');
+        tabularDiv.insertAdjacentHTML('beforeend', html);
+    }
+
+    async deleteEntry(docId) {
+        if (!confirm("Are you sure you want to PERMANENTLY delete this entry?")) return;
+
+        this.showLoading();
+        try {
+            await deleteDoc(doc(db, this.collectionName, docId));
+            alert("Entry deleted successfully.");
+            // Refresh report
+            this.generateReport();
+        } catch (error) {
+            console.error("Error deleting document: ", error);
+            alert("Failed to delete entry: " + error.message);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    displayDetailedTable(data) {
+        const isSuperAdmin = this.currentUser && this.currentUser.email.toLowerCase() === 'sanglesumedh15@gmail.com';
+        
+        // Build rows
+        const rows = data.map(record => {
+            const dateStr = new Date(record.date).toLocaleDateString();
+            const companies = Array.isArray(record.company_names) ? record.company_names.join(", ") : record.company_names;
+            
+            return `
+                <tr class="hover:bg-gray-50 border-b last:border-0 transition duration-150">
+                    <td class="px-5 py-3 text-sm text-gray-900 whitespace-nowrap">${dateStr}</td>
+                    <td class="px-5 py-3 text-sm text-gray-700 font-medium whitespace-nowrap">${record.employee_name}</td>
+                    <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">${record.team}</td>
+                    <td class="px-5 py-3 text-sm text-purple-700 font-bold text-center">${record.jd_received || 0}</td>
+                    <td class="px-5 py-3 text-sm text-gray-600 max-w-sm font-light break-words" title="${companies}">${companies || '-'}</td>
+                    ${isSuperAdmin ? `
+                    <td class="px-5 py-3 text-center">
+                        <button onclick="window.misEngine.deleteEntry('${record.id}')" 
+                                class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-semibold border border-red-200 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-300">
+                            Delete
+                        </button>
+                    </td>` : ''}
+                </tr>
+            `;
+        }).join('');
+
+        const tableHtml = `
+            <div class="mt-8 bg-white rounded-lg shadow-md border border-cool-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-cool-gray-100 bg-gray-50 flex justify-between items-center">
+                    <h4 class="text-lg font-semibold text-gray-800">Detailed Data Logs</h4>
+                    <span class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">${data.length} Records</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full leading-normal">
+                        <thead class="bg-gray-100 border-b-2 border-gray-200">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Employee</th>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Team</th>
+                                <th class="px-5 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">JD Received</th>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Companies Closed</th>
+                                ${isSuperAdmin ? '<th class="px-5 py-3 text-center text-xs font-bold text-red-600 uppercase tracking-wider">Actions</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white">
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('tabularSummary').insertAdjacentHTML('beforeend', tableHtml);
+    }
+
+    async deleteEntry(docId) {
+        if (!confirm("Are you sure you want to PERMANENTLY delete this entry?")) return;
+
+        this.showLoading();
+        try {
+            await deleteDoc(doc(db, this.collectionName, docId));
+            alert("Entry deleted successfully.");
+            this.generateReport(); // Refresh
+        } catch (error) {
+            console.error("Error deleting document: ", error);
+            alert("Failed to delete entry: " + error.message);
+        } finally {
+            this.hideLoading();
+        }
     }
 
     displayNoDataMessage() {
@@ -571,6 +720,8 @@ class MISReportingEngine {
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Calls</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fresh</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase text-purple-600">JD Received</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Companies</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -578,12 +729,15 @@ class MISReportingEngine {
 
         Object.entries(employeeSummary).forEach(([employee, data]) => {
             const rate = data.freshCalls > 0 ? ((data.connected / data.freshCalls) * 100).toFixed(1) : 0;
+            const uniqueCompanies = [...new Set(data.companies)].filter(c => c).join(', ');
             html += `
                 <tr>
                     <td class="px-4 py-2 text-sm font-medium text-gray-900">${employee}</td>
                     <td class="px-4 py-2 text-sm text-gray-500">${data.calls.toLocaleString()}</td>
                     <td class="px-4 py-2 text-sm text-gray-500">${data.freshCalls.toLocaleString()}</td>
                     <td class="px-4 py-2 text-sm text-gray-500">${rate}%</td>
+                    <td class="px-4 py-2 text-sm font-bold text-purple-600">${data.jdReceived.toLocaleString()}</td>
+                    <td class="px-4 py-2 text-xs text-gray-600 max-w-xs truncate" title="${uniqueCompanies}">${uniqueCompanies || '-'}</td>
                 </tr>
             `;
         });
@@ -699,11 +853,20 @@ class MISReportingEngine {
         data.forEach(record => {
             const name = record.employee_name;
             if (!summary[name]) {
-                summary[name] = { calls: 0, freshCalls: 0, connected: 0 };
+                summary[name] = { calls: 0, freshCalls: 0, connected: 0, jdReceived: 0, companies: [] };
             }
             summary[name].calls += record.calls_made || 0;
             summary[name].freshCalls += record.fresh_calls || 0;
             summary[name].connected += record.fresh_calls_connected || 0;
+            summary[name].jdReceived += record.jd_received || 0;
+            
+            if (record.company_names) {
+                if (Array.isArray(record.company_names)) {
+                    summary[name].companies.push(...record.company_names);
+                } else if (typeof record.company_names === 'string' && record.company_names.trim() !== '') {
+                     summary[name].companies.push(record.company_names);
+                }
+            }
         });
         return summary;
     }
@@ -725,5 +888,7 @@ class MISReportingEngine {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    new MISReportingEngine();
+    // Create the instance and attach it to the window object
+    const engine = new MISReportingEngine();
+    window.misEngine = engine; 
 });
