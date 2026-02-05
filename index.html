@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIS & Operations Reporting Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .metric-card {
+            transition: transform 0.2s ease-in-out;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-chart-line text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">MIS & Operations Reporting</h1>
+                        <p class="text-blue-100">Data-Driven Performance Analytics</p>
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button id="dataEntryBtn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Data Entry
+                    </button>
+                    <button id="reportsBtn" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-800 transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i>Reports
+                    </button>
+                    <a id="adminBtn" href="admin.html" class="hidden bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors">
+                        <i class="fas fa-shield-alt mr-2"></i>Admin
+                    </a>
+                    <a href="profile.html" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-user-circle mr-2"></i>Profile
+                    </a>
+                    <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+        <!-- Dashboard Overview -->
+        <section id="dashboard" class="mb-8">
+            <div class="bg-white rounded-xl card-shadow p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-tachometer-alt mr-3 text-blue-600"></i>
+                    Performance Dashboard
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="metricsGrid">
+                    <!-- Metrics will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Daily Performance Trend</h3>
+                    <div class="relative h-80 w-full">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Team Performance</h3>
+                    <div class="relative h-80 w-full">
+                        <canvas id="teamChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Entry Section -->
+        <section id="dataEntry" class="hidden">
+            <div class="bg-white rounded-xl card-shadow p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-edit mr-3 text-green-600"></i>
+                    Daily Data Entry
+                </h2>
+                <form id="dataEntryForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                            <input type="date" id="entryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                            <input type="text" id="employeeName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                            <select id="team" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                <option value="">Select Team</option>
+                                <option value="Sales">Sales</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Support">Support</option>
+                                <option value="Operations">Operations</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Calls Made</label>
+                            <input type="number" id="callsMade" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fresh Calls</label>
+                            <input type="number" id="freshCalls" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Operational Calls</label>
+                            <input type="number" id="operationalCalls" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fresh Calls Connected</label>
+                            <input type="number" id="freshCallsConnected" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Invite Mails Sent</label>
+                            <input type="number" id="inviteMailsSent" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">JD Received</label>
+                            <input type="number" id="jdReceived" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Company Names (Comma-separated)</label>
+                            <input type="text" id="companyNames" placeholder="Company 1, Company 2, Company 3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelEntry" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-save mr-2"></i>Save Entry
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Reports Section -->
+        <section id="reportsSection" class="hidden">
+            <div class="bg-white rounded-xl card-shadow p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-chart-bar mr-3 text-purple-600"></i>
+                    Performance Reports
+                </h2>
+                
+                <!-- Report Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
+                        <select id="reportType" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button id="generateReport" class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-cogs mr-2"></i>Generate Report
+                        </button>
+                        <button id="exportExcelBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors" title="Export to Excel">
+                            <i class="fas fa-file-excel"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Output -->
+                <div id="reportOutput" class="hidden">
+                    <div class="border-t pt-6">
+                        <div id="executiveSummary" class="mb-6"></div>
+                        <div id="tabularSummary" class="mb-6"></div>
+                        <div id="keyInsights" class="mb-6"></div>
+                        <div id="recommendations" class="mb-6"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span class="text-gray-700">Processing...</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
